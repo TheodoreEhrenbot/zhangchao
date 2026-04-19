@@ -70,7 +70,53 @@ Loaded dynamically from CSV file.")
                 (lambda (a b) (> (length (car a)) (length (car b))))))
     (setq zhangchao-pinyin-alist
           (sort (nreverse pinyin-alist)
-                (lambda (a b) (> (length (car a)) (length (car b))))))))
+                (lambda (a b) (> (length (car a)) (length (car b))))))
+    (zhangchao--add-plural-fallbacks)))
+
+;; Words that should not generate plural fallbacks (mirrors NO_PLURAL in content.js)
+(defconst zhangchao--no-plural '("us")
+  "Words excluded from plural fallback generation.")
+
+(defun zhangchao--generate-plurals (word)
+  "Return a list of plural forms for WORD using standard English rules.
+Returns nil for multi-word entries, very short words, and excluded pronouns."
+  (let ((len (length word)))
+    (cond
+      ((or (string-match-p " " word) (< len 2)) nil)
+      ((member word zhangchao--no-plural) nil)
+      ((and (> len 3) (string-suffix-p "fe" word))
+       (list (concat (substring word 0 (- len 2)) "ves")))
+      ((and (> len 2) (string-suffix-p "f" word))
+       (list (concat (substring word 0 (- len 1)) "ves")))
+      ((and (> len 2) (string-suffix-p "y" word)
+            (not (string-match-p "[aeiou]y$" word)))
+       (list (concat (substring word 0 (- len 1)) "ies")))
+      ((string-match-p "\\([sxz]\\|[cs]h\\)$" word)
+       (list (concat word "es")))
+      (t (list (concat word "s"))))))
+
+(defun zhangchao--add-plural-fallbacks ()
+  "Extend vocabulary alists with plural fallback entries.
+For each single-word entry, generated plural forms that are not already
+present are added pointing to the same Chinese/Pinyin translation."
+  (let ((extra-chinese '())
+        (extra-pinyin '()))
+    (dolist (pair zhangchao-word-alist)
+      (dolist (plural (zhangchao--generate-plurals (car pair)))
+        (unless (assoc plural zhangchao-word-alist)
+          (push (cons plural (cdr pair)) extra-chinese))))
+    (dolist (pair zhangchao-pinyin-alist)
+      (dolist (plural (zhangchao--generate-plurals (car pair)))
+        (unless (assoc plural zhangchao-pinyin-alist)
+          (push (cons plural (cdr pair)) extra-pinyin))))
+    (when extra-chinese
+      (setq zhangchao-word-alist
+            (sort (append zhangchao-word-alist extra-chinese)
+                  (lambda (a b) (> (length (car a)) (length (car b)))))))
+    (when extra-pinyin
+      (setq zhangchao-pinyin-alist
+            (sort (append zhangchao-pinyin-alist extra-pinyin)
+                  (lambda (a b) (> (length (car a)) (length (car b)))))))))
 
 ;; Load vocabulary when the mode is first loaded
 (zhangchao-load-vocabulary)

@@ -50,8 +50,14 @@
     vocabLoaded = true;
   }
 
+  // Words that shouldn't generate plural fallbacks (pronouns etc. with no
+  // useful plural, or whose algorithm-derived plural collides with a different
+  // vocab entry).
+  const NO_PLURAL = new Set(['us']);
+
   function generatePlurals(word) {
     if (word.includes(' ') || word.length < 2) return [];
+    if (NO_PLURAL.has(word)) return [];
     if (word.endsWith('fe') && word.length > 3) return [word.slice(0, -2) + 'ves'];
     if (word.endsWith('f') && word.length > 2) return [word.slice(0, -1) + 'ves'];
     if (word.endsWith('y') && word.length > 2 && !/[aeiou]y$/.test(word)) return [word.slice(0, -1) + 'ies'];
