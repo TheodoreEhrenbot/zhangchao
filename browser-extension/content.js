@@ -40,11 +40,31 @@
         if (engLower) wordMap[engLower] = { chinese, pinyin };
       }
     }
+    // Add plural fallbacks for single-word entries not already in the vocab
+    addPluralFallbacks();
+
     // Sort by length descending so longer phrases match before shorter ones
     const sorted  = Object.keys(wordMap).sort((a, b) => b.length - a.length);
     const escaped = sorted.map(w => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
     wordRegex = new RegExp(`\\b(${escaped.join('|')})\\b`, 'gi');
     vocabLoaded = true;
+  }
+
+  function generatePlurals(word) {
+    if (word.includes(' ') || word.length < 2) return [];
+    if (word.endsWith('fe') && word.length > 3) return [word.slice(0, -2) + 'ves'];
+    if (word.endsWith('f') && word.length > 2) return [word.slice(0, -1) + 'ves'];
+    if (word.endsWith('y') && word.length > 2 && !/[aeiou]y$/.test(word)) return [word.slice(0, -1) + 'ies'];
+    if (/(?:[sxz]|[cs]h)$/.test(word)) return [word + 'es'];
+    return [word + 's'];
+  }
+
+  function addPluralFallbacks() {
+    for (const [word, entry] of Object.entries(wordMap)) {
+      for (const plural of generatePlurals(word)) {
+        if (!wordMap[plural]) wordMap[plural] = entry;
+      }
+    }
   }
 
   // ── Case-sensitivity rules (mirrors the elisp logic) ──────────────────────
